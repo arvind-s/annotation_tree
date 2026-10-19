@@ -9,12 +9,12 @@ Streamlit app for marking tree crowns on 640 px farm tiles (6 px per metre, so a
 - Progress is read from the repository, so you can close the tab and carry on later, from any computer.
 
 ## Set-up (once)
-1. Create an empty **private** GitHub repo, for example `arvind-s/tree-annotator`, and push this folder to its `main` branch.
+1. Create an empty **private** GitHub repo, for example `arvind-s/annotation_tree`, and push this folder to its `main` branch.
 2. Create a GitHub **fine-grained personal access token**: only this repository, permission *Contents: Read and write*. Keep it secret.
 3. On https://share.streamlit.io choose *New app* → this repo, branch `main`, file `app.py`. Under *Advanced settings → Secrets* paste:
    ```toml
    GITHUB_TOKEN = "github_pat_..."
-   GITHUB_REPO  = "arvind-s/tree-annotator"
+   GITHUB_REPO  = "arvind-s/annotation_tree"
    ```
 4. In the app's *Share* menu keep it private and invite the annotators by email.
 
@@ -25,8 +25,8 @@ Run it on your own computer first: `pip install -r requirements.txt` then `strea
 ## Sending the labels back to the model
 On the machine that holds the model (`/Users/mipl/Downloads/farm_landcover`):
 ```bash
-git clone -b labels --single-branch git@github.com:arvind-s/tree-annotator.git /tmp/tree-annotator-labels    # or: git -C /tmp/tree-annotator-labels pull
-./.venv_yolo/bin/python -I code/ingest_tile_labels.py /tmp/tree-annotator-labels/labels /Users/mipl/Downloads/images tree_yolo/ds_v6 tree_yolo/ds_v7
+git clone -b labels --single-branch https://github.com/arvind-s/annotation_tree.git /tmp/annotation_tree-labels    # or: git -C /tmp/annotation_tree-labels pull
+./.venv_yolo/bin/python -I code/ingest_tile_labels.py /tmp/annotation_tree-labels/labels /Users/mipl/Downloads/images tree_yolo/ds_v6 tree_yolo/ds_v7
 ./.venv_yolo/bin/python -I code/tree_yolo_train2.py $PWD/tree_yolo/ds_v7 v7 yolov8s.pt 960 50 0.4 mps          # about 3 hours
 ./.venv_yolo/bin/python -I code/pp_eval.py tree_yolo/runs/v7/weights/best.pt tree_yolo/pp_eval_v7.json         # same 23 unseen test farms as v5 and v6
 ```
