@@ -75,7 +75,7 @@ S = st.session_state
 if "done" not in S:
     try: S.done = store.list_done()
     except Exception as e: S.done = {}; st.error(f"Could not read saved labels: {e}")
-S.setdefault("idx", 0); S.setdefault("crowns", {}); S.setdefault("undo", []); S.setdefault("last_click", None); S.setdefault("t0", time.time()); S.setdefault("opened", None)
+S.setdefault("idx", 0); S.setdefault("crowns", {}); S.setdefault("undo", []); S.setdefault("last_click", None); S.setdefault("last_ts", None); S.setdefault("t0", time.time()); S.setdefault("opened", None)
 
 def goto(i): S.idx = max(0, min(len(IDS) - 1, i)); S.last_click = None; S.undo = []
 def next_open(start):
@@ -103,38 +103,43 @@ if S.opened != tid:                                       # entering a tile: loa
     S.crowns[tid] = [list(c) for c in (saved["crowns"] if saved else meta["prefill"])]; S.opened = tid; S.t0 = time.time(); S.undo = []; S.last_click = None
 crowns = S.crowns[tid]
 
-c1, c2 = st.columns([5, 2])
-with c1:
-    img = Image.open(TILES / f"{tid}.jpg").convert("RGB"); d = ImageDraw.Draw(img)
-    for x, y, r in crowns: d.ellipse([x - r, y - r, x + r, y + r], outline=(255, 214, 0), width=2)
-    click = streamlit_image_coordinates(img, width=zoom, key=f"img-{tid}-{len(S.undo)}-{len(crowns)}")
-    if click and click != S.last_click:
-        S.last_click = click; sc = 640 / click["width"]; x, y = click["x"] * sc, click["y"] * sc
-        S.undo.append([list(c) for c in crowns])
-        if mode == "Add a tree": crowns.append([round(x, 1), round(y, 1), float(rad)])
-        elif crowns:
-            k = min(range(len(crowns)), key=lambda i: (crowns[i][0] - x) ** 2 + (crowns[i][1] - y) ** 2)
-            if ((crowns[k][0] - x) ** 2 + (crowns[k][1] - y) ** 2) ** .5 <= max(14, crowns[k][2] * 2): crowns.pop(k)
-        st.rerun()
-with c2:
-    st.subheader(f"Tile {tid}")
-    st.write(f"**{len(crowns)} trees now** · detector draft {len(meta['prefill'])} · farm {meta['farm']} · tile {S.idx + 1} of {len(IDS)}")
-    st.caption("Yellow circles are the trees. Everything shaded dark is outside the farm outline: do not mark it.")
-    b = st.columns(3)
-    if b[0].button("Undo", use_container_width=True, disabled=not S.undo): crowns[:] = S.undo.pop(); S.last_click = None; st.rerun()
-    if b[1].button("Reset to draft", use_container_width=True): S.undo.append([list(c) for c in crowns]); crowns[:] = [list(c) for c in meta["prefill"]]; st.rerun()
-    if b[2].button("Clear all", use_container_width=True): S.undo.append([list(c) for c in crowns]); crowns[:] = []; st.rerun()
-    def save(status):
-        obj = {"tile": tid, "farm": meta["farm"], "x0": meta["x0"], "y0": meta["y0"], "crowns": [[round(a, 1), round(b_, 1), round(r, 1)] for a, b_, r in crowns], "n_draft": len(meta["prefill"]),
-               "status": status, "annotator": S.name or "unknown", "seconds": round(time.time() - S.t0), "saved": dt.datetime.utcnow().isoformat(timespec="seconds") + "Z"}
-        try: store.save(tid, obj); S.done[tid] = status; return True
-        except Exception as e: st.error(f"Save failed, nothing was lost: {e}"); return False
-    s = st.columns(2)
-    if s[0].button("Save and next", type="primary", use_container_width=True):
-        if save("no_trees" if not crowns else "done"): goto(next_open(S.idx + 1) if only_open else S.idx + 1); st.rerun()
-    if s[1].button("Skip (unclear picture)", use_container_width=True):
-        if save("skipped"): goto(next_open(S.idx + 1) if only_open else S.idx + 1); st.rerun()
-    n = st.columns(2)
-    if n[0].button("Previous", use_container_width=True): goto(S.idx - 1); st.rerun()
-    if n[1].button("Next", use_container_width=True): goto(S.idx + 1); st.rerun()
-    if tid in S.done: st.success(f"Already saved as {S.done[tid]}. Saving again overwrites it.")
+@st.fragment
+def editor():
+    tid = IDS[S.idx]; meta = BY[tid]; crowns = S.crowns[tid]
+    c1, c2 = st.columns([5, 2])
+    with c1:
+        img = Image.open(TILES / f"{tid}.jpg").convert("RGB"); d = ImageDraw.Draw(img)
+        for x, y, r in crowns: d.ellipse([x - r, y - r, x + r, y + r], outline=(255, 214, 0), width=2)
+        click = streamlit_image_coordinates(img, width=zoom, key=f"img-{tid}")
+        if click and click.get("unix_time") != S.last_ts:
+            S.last_ts = click.get("unix_time"); sc = 640 / click["width"]; x, y = click["x"] * sc, click["y"] * sc
+            S.undo.append([list(c) for c in crowns])
+            if mode == "Add a tree": crowns.append([round(x, 1), round(y, 1), float(rad)])
+            elif crowns:
+                k = min(range(len(crowns)), key=lambda i: (crowns[i][0] - x) ** 2 + (crowns[i][1] - y) ** 2)
+                if ((crowns[k][0] - x) ** 2 + (crowns[k][1] - y) ** 2) ** .5 <= max(14, crowns[k][2] * 2): crowns.pop(k)
+            st.rerun(scope="fragment")
+    with c2:
+        st.subheader(f"Tile {tid}")
+        st.write(f"**{len(crowns)} trees now** · detector draft {len(meta['prefill'])} · farm {meta['farm']} · tile {S.idx + 1} of {len(IDS)}")
+        st.caption("Yellow circles are the trees. Everything shaded dark is outside the farm outline: do not mark it.")
+        b = st.columns(3)
+        if b[0].button("Undo", use_container_width=True, disabled=not S.undo): crowns[:] = S.undo.pop(); st.rerun(scope="fragment")
+        if b[1].button("Reset to draft", use_container_width=True): S.undo.append([list(c) for c in crowns]); crowns[:] = [list(c) for c in meta["prefill"]]; st.rerun(scope="fragment")
+        if b[2].button("Clear all", use_container_width=True): S.undo.append([list(c) for c in crowns]); crowns[:] = []; st.rerun(scope="fragment")
+        def save(status):
+            obj = {"tile": tid, "farm": meta["farm"], "x0": meta["x0"], "y0": meta["y0"], "crowns": [[round(a, 1), round(b_, 1), round(r, 1)] for a, b_, r in crowns], "n_draft": len(meta["prefill"]),
+                   "status": status, "annotator": S.name or "unknown", "seconds": round(time.time() - S.t0), "saved": dt.datetime.utcnow().isoformat(timespec="seconds") + "Z"}
+            try: store.save(tid, obj); S.done[tid] = status; return True
+            except Exception as e: st.error(f"Save failed, nothing was lost: {e}"); return False
+        s = st.columns(2)
+        if s[0].button("Save and next", type="primary", use_container_width=True):
+            if save("no_trees" if not crowns else "done"): goto(next_open(S.idx + 1) if only_open else S.idx + 1); st.rerun(scope="app")
+        if s[1].button("Skip (unclear picture)", use_container_width=True):
+            if save("skipped"): goto(next_open(S.idx + 1) if only_open else S.idx + 1); st.rerun(scope="app")
+        n = st.columns(2)
+        if n[0].button("Previous", use_container_width=True): goto(S.idx - 1); st.rerun(scope="app")
+        if n[1].button("Next", use_container_width=True): goto(S.idx + 1); st.rerun(scope="app")
+        if tid in S.done: st.success(f"Already saved as {S.done[tid]}. Saving again overwrites it.")
+
+editor()
