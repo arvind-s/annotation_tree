@@ -8,6 +8,8 @@ The sidebar **Imagery** menu switches between the Google Earth screenshot tiles 
 ## How labelling works
 - **Add a tree** mode: click the middle of a tree. **Delete a tree** mode: click on a circle to remove the nearest one.
 - The radius slider sets the size of new circles (6 px = 1 m). Draft circles keep their detector size.
+- **Skip** needs a remark (a text box under the buttons): say what is unclear. Remarks are optional on Save and next.
+- The sidebar shows how many tiles are **pending, done and skipped**, and the **Show tiles that are** list filters the tiles to pending, done or skipped. The **Status table** page (menu at the top left) lists every tile with its status, remarks, who skipped it and when, with a CSV download.
 - **Save and next** stores the tile (a tile with no circles is saved as "no trees"); **Skip** is for pictures you cannot judge.
 - Progress is read from the repository, so you can close the tab and carry on later, from any computer.
 
@@ -21,7 +23,7 @@ The sidebar **Imagery** menu switches between the Google Earth screenshot tiles 
    ```
 4. In the app's *Share* menu keep it private and invite the annotators by email.
 
-Labels are committed to a separate branch called `labels` (created by the app on first start), as one small file per tile in `labels/<tile id>.json`. Saves therefore never touch `main`, so the app is not redeployed while you work.
+Labels are committed to a separate branch called `labels` (created by the app on first start), as one small file per tile: `labels/<tile id>.json` (done or no trees) or `labels/<tile id>.skipped.json` (skipped, holding the remarks). Saving a tile removes the file of the other kind. Tiles skipped in an earlier version sit under the plain name and show as done until opened once. Saves therefore never touch `main`, so the app is not redeployed while you work.
 
 Run it on your own computer first: `pip install -r requirements.txt` then `streamlit run app.py`. Without secrets it writes to `labels_local/`.
 
