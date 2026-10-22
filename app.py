@@ -99,7 +99,6 @@ with st.sidebar:
     rad = st.slider("Circle radius for new trees (px)", 3, 20, 7, help="6 px = 1 m on the ground")
     zoom = st.select_slider("Picture size", options=[640, 800, 960, 1120], value=800)
     st.markdown("---")
-    show_raw = st.checkbox("Show the raw picture above the editor", value=True, help="The same tile without any circles, to compare with before you edit")
     only_open = st.checkbox("Jump over tiles already done", value=True)
     j = st.text_input("Go to tile id", placeholder="e.g. 2073_1_1")
     if j and j in BY and j in IDS: goto(IDS.index(j))
@@ -116,7 +115,6 @@ crowns = S.crowns[tid]
 def editor():
     tid = IDS[S.idx]; meta = BY[tid]; crowns = S.crowns[tid]
     raw = Image.open(TILES / f"{tid}.jpg").convert("RGB")
-    if show_raw: st.image(raw, width=zoom, caption=f"Raw picture, no circles ({meta.get('source', 'Google Earth screenshot')}). Your editable copy is below.")
     show_c = st.toggle("Show circles", value=True, key="show_circles", help="Turn off to see the picture clean. Clicks do nothing while the circles are hidden, so nothing is added or removed by accident.")
     c1, c2 = st.columns([5, 2])
     with c1:
