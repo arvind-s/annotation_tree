@@ -99,6 +99,7 @@ with st.sidebar:
     rad = st.slider("Circle radius for new trees (px)", 3, 20, 7, help="6 px = 1 m on the ground")
     zoom = st.select_slider("Picture size", options=[640, 800, 960, 1120], value=800)
     st.markdown("---")
+    show_raw = st.checkbox("Show the raw picture above the editor", value=True, help="The same tile without any circles, to compare with before you edit")
     only_open = st.checkbox("Jump over tiles already done", value=True)
     j = st.text_input("Go to tile id", placeholder="e.g. 2073_1_1")
     if j and j in BY and j in IDS: goto(IDS.index(j))
@@ -114,9 +115,11 @@ crowns = S.crowns[tid]
 @st.fragment
 def editor():
     tid = IDS[S.idx]; meta = BY[tid]; crowns = S.crowns[tid]
+    raw = Image.open(TILES / f"{tid}.jpg").convert("RGB")
+    if show_raw: st.image(raw, width=zoom, caption=f"Raw picture, no circles ({meta.get('source', 'Google Earth screenshot')}). Your editable copy is below.")
     c1, c2 = st.columns([5, 2])
     with c1:
-        img = Image.open(TILES / f"{tid}.jpg").convert("RGB"); d = ImageDraw.Draw(img)
+        img = raw.copy(); d = ImageDraw.Draw(img)
         for x, y, r in crowns: d.ellipse([x - r, y - r, x + r, y + r], outline=(255, 214, 0), width=2)
         click = streamlit_image_coordinates(img, width=zoom, key=f"img-{tid}")
         if click and click.get("unix_time") != S.last_ts:
