@@ -117,11 +117,15 @@ def editor():
     tid = IDS[S.idx]; meta = BY[tid]; crowns = S.crowns[tid]
     raw = Image.open(TILES / f"{tid}.jpg").convert("RGB")
     if show_raw: st.image(raw, width=zoom, caption=f"Raw picture, no circles ({meta.get('source', 'Google Earth screenshot')}). Your editable copy is below.")
+    show_c = st.toggle("Show circles", value=True, key="show_circles", help="Turn off to see the picture clean. Clicks do nothing while the circles are hidden, so nothing is added or removed by accident.")
     c1, c2 = st.columns([5, 2])
     with c1:
         img = raw.copy(); d = ImageDraw.Draw(img)
-        for x, y, r in crowns: d.ellipse([x - r, y - r, x + r, y + r], outline=(255, 214, 0), width=2)
-        click = streamlit_image_coordinates(img, width=zoom, key=f"img-{tid}")
+        if show_c:
+            for x, y, r in crowns: d.ellipse([x - r, y - r, x + r, y + r], outline=(255, 214, 0), width=2)
+            click = streamlit_image_coordinates(img, width=zoom, key=f"img-{tid}")
+        else:
+            click = None; st.image(img, width=zoom, caption="Circles hidden. Turn them back on to edit; your circles are kept.")
         if click and click.get("unix_time") != S.last_ts:
             S.last_ts = click.get("unix_time"); sc = 640 / click["width"]; x, y = click["x"] * sc, click["y"] * sc
             S.undo.append([list(c) for c in crowns])
