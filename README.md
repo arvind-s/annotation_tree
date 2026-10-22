@@ -2,6 +2,9 @@
 
 Streamlit app for marking tree crowns on 640 px farm tiles (6 px per metre, so a tile is about 107 m across). Each tile arrives with the detector's circles already drawn; you add the missed trees and delete the wrong circles, then press **Save and next**.
 
+## Imagery
+The sidebar **Imagery** menu switches between the Google Earth screenshot tiles and the 88 block 01 tiles cut from the UP42 images: WorldView Legion (23 Jan 2026, 0.36 m) and WorldView-2 (25 Dec 2023, 0.56 m). Both are cut at the same 6 px/m, outside the farm outline shaded dark, with the v6 detector's boxes as the draft. Tile ids start with L (Legion) or W (WorldView-2). Build them with `code/build_geotiff_annotation_tiles.py`; the ingest re-cuts them from the GeoTIFFs.
+
 ## How labelling works
 - **Add a tree** mode: click the middle of a tree. **Delete a tree** mode: click on a circle to remove the nearest one.
 - The radius slider sets the size of new circles (6 px = 1 m). Draft circles keep their detector size.

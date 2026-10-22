@@ -68,13 +68,18 @@ store = get_store()
 
 @st.cache_data
 def manifest(): return json.loads((HERE / "data" / "manifest.json").read_text())
-M = manifest(); IDS = [t["id"] for t in M]; BY = {t["id"]: t for t in M}
+M = manifest(); BY = {t["id"]: t for t in M}
+SRC_LABEL = {"All imagery": None, "Google Earth screenshots": "", "WorldView Legion, Jan 2026": "legion", "WorldView-2, Dec 2023": "wv2"}   # manifest "src": absent for Google Earth tiles
+def ids_for(choice):
+    want = SRC_LABEL.get(choice)
+    return [t["id"] for t in M] if want is None else [t["id"] for t in M if t.get("src", "") == want]
 
 # ----------------------------------------------------------------------------- state
 S = st.session_state
 if "done" not in S:
     try: S.done = store.list_done()
     except Exception as e: S.done = {}; st.error(f"Could not read saved labels: {e}")
+S.setdefault("src_choice", "All imagery"); IDS = ids_for(S.src_choice) or ids_for("All imagery")
 S.setdefault("idx", 0); S.setdefault("crowns", {}); S.setdefault("undo", []); S.setdefault("last_click", None); S.setdefault("last_ts", None); S.setdefault("t0", time.time()); S.setdefault("opened", None)
 
 def goto(i): S.idx = max(0, min(len(IDS) - 1, i)); S.last_click = None; S.undo = []
@@ -86,6 +91,9 @@ def next_open(start):
 with st.sidebar:
     st.title("Tree annotation")
     name = st.text_input("Your name", value=S.get("name", ""), placeholder="used in the saved labels"); S.name = name
+    def _new_source(): S.idx = 0; S.last_click = None; S.undo = []
+    st.selectbox("Imagery", list(SRC_LABEL), key="src_choice", on_change=_new_source, help="Google Earth screenshots, or the block 01 farms cut from the WorldView Legion (Jan 2026) and WorldView-2 (Dec 2023) images")
+    IDS = ids_for(S.src_choice) or ids_for("All imagery")
     n_done = sum(1 for t in IDS if t in S.done); st.progress(n_done / len(IDS), text=f"{n_done} of {len(IDS)} tiles done")
     mode = st.radio("Click does", ["Add a tree", "Delete a tree"], horizontal=True)
     rad = st.slider("Circle radius for new trees (px)", 3, 20, 7, help="6 px = 1 m on the ground")
@@ -93,11 +101,11 @@ with st.sidebar:
     st.markdown("---")
     only_open = st.checkbox("Jump over tiles already done", value=True)
     j = st.text_input("Go to tile id", placeholder="e.g. 2073_1_1")
-    if j and j in BY: goto(IDS.index(j))
+    if j and j in BY and j in IDS: goto(IDS.index(j))
     if st.button("Go to first tile not done", use_container_width=True): goto(next_open(0))
     st.caption(f"Labels are saved to {'the GitHub repo (branch labels)' if store.remote else 'the local folder labels_local/ (no GitHub secrets found)'}.")
 
-tid = IDS[S.idx]; meta = BY[tid]
+S.idx = min(S.idx, len(IDS) - 1); tid = IDS[S.idx]; meta = BY[tid]
 if S.opened != tid:                                       # entering a tile: load a saved label if there is one, else the draft
     saved = store.load(tid) if tid in S.done else None
     S.crowns[tid] = [list(c) for c in (saved["crowns"] if saved else meta["prefill"])]; S.opened = tid; S.t0 = time.time(); S.undo = []; S.last_click = None
@@ -122,6 +130,7 @@ def editor():
     with c2:
         st.subheader(f"Tile {tid}")
         st.write(f"**{len(crowns)} trees now** · detector draft {len(meta['prefill'])} · farm {meta['farm']} · tile {S.idx + 1} of {len(IDS)}")
+        st.caption("Image: " + meta.get("source", "Google Earth screenshot"))
         st.caption("Yellow circles are the trees. Everything shaded dark is outside the farm outline: do not mark it.")
         b = st.columns(3)
         if b[0].button("Undo", use_container_width=True, disabled=not S.undo): crowns[:] = S.undo.pop(); st.rerun(scope="fragment")
@@ -129,7 +138,7 @@ def editor():
         if b[2].button("Clear all", use_container_width=True): S.undo.append([list(c) for c in crowns]); crowns[:] = []; st.rerun(scope="fragment")
         def save(status):
             obj = {"tile": tid, "farm": meta["farm"], "x0": meta["x0"], "y0": meta["y0"], "crowns": [[round(a, 1), round(b_, 1), round(r, 1)] for a, b_, r in crowns], "n_draft": len(meta["prefill"]),
-                   "status": status, "annotator": S.name or "unknown", "seconds": round(time.time() - S.t0), "saved": dt.datetime.utcnow().isoformat(timespec="seconds") + "Z"}
+                   "src": meta.get("src", ""), "status": status, "annotator": S.name or "unknown", "seconds": round(time.time() - S.t0), "saved": dt.datetime.utcnow().isoformat(timespec="seconds") + "Z"}
             try: store.save(tid, obj); S.done[tid] = status; return True
             except Exception as e: st.error(f"Save failed, nothing was lost: {e}"); return False
         s = st.columns(2)
